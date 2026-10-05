@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub 贡献图设计器</title>
+    <meta name="color-scheme" content="light dark">
+    <script>
+        // 首屏前应用主题，避免深色偏好下先闪白屏（与主脚本 ga-theme 逻辑一致）
+        (function () {
+            try {
+                var s = localStorage.getItem('ga-theme');
+                var t = (s === 'dark' || s === 'light')
+                    ? s
+                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+    <style>
+        /* --- General & Font Styles (Replaces Google Fonts & Tailwind Base) --- */
+        :root {
+            --color-bg: #f3f4f6;
+            --color-text: #1f2937;
+            --color-text-light: #4b5563;
+            --color-panel-bg: #ffffff;
+            --color-border: #d1d5db;
+            --color-input-bg: #f9fafb;
+            --color-primary: #2563eb;
+            --color-primary-hover: #1d4ed8;
+            --color-shadow: rgba(0, 0, 0, 0.1);
+            --color-hint: #b45309;
+            
+            --level-0: #ebedf0;
+            --level-1: #9be9a8;
+            --level-2: #40c463;
+            --level-3: #30a14e;
+            --level-4: #216e39;
+            --cell-disabled: #e2e2e2;
+        }
+        :root[data-theme="dark"] {
+            --color-bg: #0d1117;
+            --color-text: #e6edf3;
+            --color-text-light: #8b949e;
+            --color-panel-bg: #161b22;
+            --color-border: #30363d;
+            --color-input-bg: #0d1117;
+            --color-primary: #2563eb;
+            --color-primary-hover: #3b82f6;
+            --color-shadow: rgba(0, 0, 0, 0.6);
+            --color-hint: #f59e0b;
+
+            /* GitHub 暗色贡献图色阶 */
+            --level-0: #161b22;
+            --level-1: #0e4429;
+            --level-2: #006d32;
+            --level-3: #00893b;
+            --level-4: #00c24a;
+            --cell-disabled: #21262d;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            margin: 0;
+            padding: 1rem;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* --- Layout --- */
+        .container { max-width: 1200px; margin: auto; padding: 1rem; }
+        header { position: relative; text-align: center; margin-bottom: 2rem; }
+        .header-actions { position: absolute; top: 0; right: 0; display: flex; gap: 0.5rem; }
+        .header-action-btn {
+            padding: 0.35rem 0.9rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 0.375rem;
+            background-color: var(--color-panel-bg);
+            color: var(--color-primary);
+            border: 1px solid var(--color-border);
+            box-shadow: none;
+        }
+        .header-action-btn:hover { background-color: var(--color-input-bg); }
+        .theme-toggle { font-size: 1rem; line-height: 1.2; }
+        main { background-color: var(--color-panel-bg); padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px var(--color-shadow); }
+        footer { margin-top: 3rem; }
+
+        /* --- Typography --- */
+        h1 { font-size: 2.25rem; font-weight: 700; margin: 0; }
+        h2 { font-size: 1.5rem; font-weight: 700; text-align: center; margin-bottom: 1.5rem; }
+        p { margin-top: 0.5rem; color: var(--color-text-light); }
+        label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.25rem; color: var(--color-text-light); }
+
+        /* --- Forms --- */
+        .form-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+        @media (min-width: 768px) { .form-grid { grid-template-columns: repeat(3, 1fr); } }
+        
+        .input-group > div { margin-bottom: 1rem; }
+        @media (min-width: 1024px) { 
+            .input-group { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start; } 
+            .input-group > div { margin-bottom: 0; }
+        }
+
+        input[type="text"], input[type="email"], textarea, select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            background-color: var(--color-input-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 0.375rem;
+            box-shadow: inset 0 1px 2px var(--color-shadow);
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
+        }
+        textarea { min-height: 80px; resize: vertical; }
+        button {
+            background-color: var(--color-primary);
+            color: white;
+            font-weight: 700;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 var(--color-shadow);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: var(--color-primary-hover); }
+
+        /* --- Contribution Grid & Palette --- */
+        .contribution-grid {
+            display: grid;
+            grid-template-rows: repeat(7, 1fr);
+            grid-auto-flow: column;
+            grid-auto-columns: 1fr;
+            gap: 3px;
+            padding: 0.5rem;
+            background-color: var(--color-panel-bg);
+            border: 1px solid var(--color-border);
+            border-radius: 0.375rem;
+        }
+        .grid-cell {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: transform 0.1s ease-in-out;
+            background-color: var(--level-0);
+        }
+        .grid-cell:not(.disabled):hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .grid-cell.disabled { background-color: var(--cell-disabled); cursor: not-allowed; }
+        .level-0 { background-color: var(--level-0); }
+        .level-1 { background-color: var(--level-1); }
+        .level-2 { background-color: var(--level-2); }
+        .level-3 { background-color: var(--level-3); }
+        .level-4 { background-color: var(--level-4); }
+        
+        .palette { display: flex; align-items: center; gap: 0.5rem; }
+        .palette-color { width: 2rem; height: 2rem; border-radius: 0.375rem; cursor: pointer; }
+        .palette-color.active { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+        /* --- Toolbar / Hint --- */
+        .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+        .btn-small { padding: 0.35rem 0.9rem; font-size: 0.8125rem; font-weight: 600; border-radius: 0.375rem; }
+        .btn-small:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        .btn-small:disabled:hover { background-color: #9ca3af; }
+        .hint { min-height: 1.2em; margin-top: 0.35rem; font-size: 0.8125rem; line-height: 1.35; color: var(--color-hint); }
+        .toolbar .hint { margin-top: 0; color: var(--color-text-light); }
+
+        /* --- Font Preview --- */
+        .font-preview-wrapper { background-color: var(--color-panel-bg); padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px var(--color-shadow); }
+        .font-preview-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 1rem 1rem; }
+        .font-char-item { display: flex; flex-direction: column; align-items: center; }
+        .font-char-label { font-family: monospace; font-size: 0.875rem; margin-bottom: 0.25rem; }
+        .font-char-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; width: 50px; }
+        .font-cell { width: 100%; aspect-ratio: 1/1; border-radius: 1px; }
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container">
+        <header>
+            <div class="header-actions">
+                <button type="button" id="themeToggle" class="header-action-btn theme-toggle">🌙</button>
+                <button type="button" id="langToggle" class="header-action-btn" data-i18n-title="langToggleTitle">English</button>
+            </div>
+            <h1 data-i18n="title">GitHub 贡献图设计器</h1>
+            <p data-i18n="subtitle">通过输入文本或手动绘制来设计你的贡献图艺术！</p>
+        </header>
+
+        <main>
+            <!-- 配置区域 -->
+            <div class="form-grid">
+                <div>
+                    <label for="repoName" data-i18n="repoName">仓库名称</label>
+                    <input type="text" id="repoName" placeholder="e.g., my-contribution-art">
+                </div>
+                <div>
+                    <label for="userName" data-i18n="gitUserName">Git 用户名</label>
+                    <input type="text" id="userName" placeholder="e.g., Your Name">
+                </div>
+                <div>
+                    <label for="userEmail" data-i18n="gitUserEmail">Git 邮箱</label>
+                    <input type="email" id="userEmail" placeholder="e.g., your.email@example.com">
+                </div>
+            </div>
+
+            <!-- 输入与绘制区域 -->
+            <div class="input-group">
+                <div>
+                    <div>
+                        <label for="yearSelect" data-i18n="selectYear">选择年份</label>
+                        <select id="yearSelect"></select>
+                    </div>
+                    <div>
+                        <label for="textInput" data-i18n="enterText">输入文本 (大写)</label>
+                        <textarea id="textInput" data-i18n-placeholder="textPlaceholder" placeholder="输入 'HELLO' 试试..."></textarea>
+                        <div id="textHint" class="hint" role="status" aria-live="polite"></div>
+                    </div>
+                    <div>
+                        <label data-i18n="selectLevel">选择贡献等级 (画笔)</label>
+                        <div id="palette" class="palette"></div>
+                        <div class="toolbar">
+                            <button type="button" id="undoBtn" class="btn-small" disabled data-i18n="undo" data-i18n-title="undoTitle" title="撤销 (Ctrl+Z)">↶ 撤销</button>
+                            <button type="button" id="redoBtn" class="btn-small" disabled data-i18n="redo" data-i18n-title="redoTitle" title="重做 (Ctrl+Y)">↷ 重做</button>
+                            <span class="hint" data-i18n="shortcutsHint">快捷键: Ctrl+Z / Ctrl+Y</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label data-i18n="previewLabel">贡献图预览</label>
+                    <div id="grid-container" class="contribution-grid"></div>
+                </div>
+            </div>
+
+            <!-- 生成按钮 -->
+            <div style="text-align: center; margin-top: 2rem;">
+                <button id="generateBtn" data-i18n="generateBtn">生成 pattern.json 配置文件</button>
+            </div>
+        </main>
+
+        <footer class="mt-12">
+            <h2 data-i18n="fontPreviewTitle">5x7 像素字库预览</h2>
+            <div class="font-preview-wrapper">
+                <div id="font-preview-container" class="font-preview-container"></div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Configuration and State ---
+            const ROWS = 7;
+            const COLS = 53;
+            const FONT_WIDTH = 5;
+            const FONT_HEIGHT = 7;
+            const HISTORY_LIMIT = 100;
+
+            // --- i18n (zh / en)，默认跟随系统（浏览器）语言，手动切换后记住选择 ---
+            const I18N = {
+                zh: {
+                    title: 'GitHub 贡献图设计器',
+                    subtitle: '通过输入文本或手动绘制来设计你的贡献图艺术！',
+                    repoName: '仓库名称',
+                    gitUserName: 'Git 用户名',
+                    gitUserEmail: 'Git 邮箱',
+                    selectYear: '选择年份',
+                    enterText: '输入文本 (大写)',
+                    textPlaceholder: "输入 'HELLO' 试试...",
+                    selectLevel: '选择贡献等级 (画笔)',
+                    undo: '↶ 撤销',
+                    redo: '↷ 重做',
+                    undoTitle: '撤销 (Ctrl+Z)',
+                    redoTitle: '重做 (Ctrl+Y)',
+                    shortcutsHint: '快捷键: Ctrl+Z / Ctrl+Y',
+                    previewLabel: '贡献图预览',
+                    generateBtn: '生成 pattern.json 配置文件',
+                    fontPreviewTitle: '5x7 像素字库预览',
+                    langToggle: 'English',
+                    langToggleTitle: '切换到 English',
+                    themeToggleToDark: '切换到深色模式',
+                    themeToggleToLight: '切换到浅色模式',
+                    yearSwitchConfirm: '切换年份会清空当前图案，是否继续？',
+                    hintUnsupported: '不支持字符：{chars}（已按空格占位）',
+                    hintTruncated: '文本过长，超出的部分已截断',
+                    hintEraser: '当前画笔为 0 级（橡皮），文字将不可见',
+                    alertMissing: '请填写所有配置信息！(仓库名称, Git 用户名, Git 邮箱)',
+                    alertRepoName: '仓库名称只能包含字母、数字、点、下划线和连字符，不能包含斜杠、空格或其他符号。\n例如: my-contribution-art',
+                    alertEmail: 'Git 邮箱格式不正确，请输入类似 your.email@example.com 的地址。',
+                    alertEmptyPattern: '当前图案为空（没有任何非零等级），生成的仓库将不包含任何提交。\n是否仍要导出配置文件？'
+                },
+                en: {
+                    title: 'GitHub Contribution Art Designer',
+                    subtitle: 'Design your contribution art by typing text or drawing manually!',
+                    repoName: 'Repository Name',
+                    gitUserName: 'Git User Name',
+                    gitUserEmail: 'Git Email',
+                    selectYear: 'Select Year',
+                    enterText: 'Enter Text (Uppercase)',
+                    textPlaceholder: "Try typing 'HELLO'...",
+                    selectLevel: 'Select Contribution Level (Brush)',
+                    undo: '↶ Undo',
+                    redo: '↷ Redo',
+                    undoTitle: 'Undo (Ctrl+Z)',
+                    redoTitle: 'Redo (Ctrl+Y)',
+                    shortcutsHint: 'Shortcuts: Ctrl+Z / Ctrl+Y',
+                    previewLabel: 'Contribution Preview',
+                    generateBtn: 'Generate pattern.json Config File',
+                    fontPreviewTitle: '5x7 Pixel Font Preview',
+                    langToggle: '中文',
+                    langToggleTitle: '切换到中文',
+                    themeToggleToDark: 'Switch to dark mode',
+                    themeToggleToLight: 'Switch to light mode',
+                    yearSwitchConfirm: 'Changing the year will clear the current pattern. Continue?',
+                    hintUnsupported: 'Unsupported character(s): {chars} (rendered as spaces)',
+                    hintTruncated: 'Text too long; the overflow has been truncated',
+                    hintEraser: 'Current brush is level 0 (eraser); text will be invisible',
+                    alertMissing: 'Please fill in all fields! (Repository Name, Git User Name, Git Email)',
+                    alertRepoName: 'Repository name may only contain letters, digits, dots, underscores and hyphens — no slashes, spaces or other symbols.\nExample: my-contribution-art',
+                    alertEmail: 'Git email is not valid. Please enter an address like your.email@example.com.',
+                    alertEmptyPattern: 'The pattern is empty (no non-zero levels), so the generated repository will contain no commits.\nExport the config file anyway?'
+                }
+            };
+
+            function detectLang() {
+                try {
+                    const saved = localStorage.getItem('ga-lang');
+                    if (saved === 'zh' || saved === 'en') return saved;
+                } catch (e) { /* ignore */ }
+                const nav = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
+                return /^zh/i.test(nav) ? 'zh' : 'en';
+            }
+            let lang = detectLang();
+
+            function t(key, params) {
+                let s = I18N[lang] && I18N[lang][key];
+                if (typeof s !== 'string') s = I18N.zh[key];
+                if (params) s = String(s).replace(/\{(\w+)\}/g, (m, k) => (k in params ? params[k] : m));
+                return s;
+            }
+
+            function applyLang() {
+                document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+                document.title = t('title');
+                document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+                document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+                updateTextHint();
+                applyTheme();
+            }
+
+            // --- 主题（深色/浅色），默认跟随系统，手动切换后记住选择 ---
+            function getSystemTheme() {
+                return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            let theme = (function detectTheme() {
+                try {
+                    const saved = localStorage.getItem('ga-theme');
+                    if (saved === 'dark' || saved === 'light') return saved;
+                } catch (e) { /* ignore */ }
+                return getSystemTheme();
+            })();
+
+            function applyTheme() {
+                document.documentElement.dataset.theme = theme;
+                themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+                themeToggle.title = t(theme === 'dark' ? 'themeToggleToLight' : 'themeToggleToDark');
+            }
+            
+            let gridState = Array(ROWS).fill(0).map(() => Array(COLS).fill(0));
+            let disabledCells = Array(ROWS).fill(0).map(() => Array(COLS).fill(false));
+            let gridStartDate = new Date();
+            let selectedLevel = 1;
+            let isMouseDown = false;
+            let currentYear = new Date().getFullYear();
+            let history = [];
+            let future = [];
+            let strokeSnapshot = null;
+            let lastUnsupported = new Set();
+            let lastTruncated = false;
+
+            const gridContainer = document.getElementById('grid-container');
+            const textInput = document.getElementById('textInput');
+            const textHint = document.getElementById('textHint');
+            const generateBtn = document.getElementById('generateBtn');
+            const paletteContainer = document.getElementById('palette');
+            const fontPreviewContainer = document.getElementById('font-preview-container');
+            const yearSelect = document.getElementById('yearSelect');
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            const langToggle = document.getElementById('langToggle');
+            const themeToggle = document.getElementById('themeToggle');
+
+            const FONT_5x7 = {
+                'A': ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
+                'B': ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+                'C': ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
+                'D': ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+                'E': ["11111", "10000", "10000", "11110", "10000", "10000", "11111"],
+                'F': ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+                'G': ["01110", "10001", "10000", "10111", "10001", "10001", "01110"],
+                'H': ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+                'I': ["01110", "00100", "00100", "00100", "00100", "00100", "01110"],
+                'J': ["00111", "00010", "00010", "00010", "00010", "10010", "01100"],
+                'K': ["10001", "10010", "10100", "11000", "10100", "10010", "10001"],
+                'L': ["10000", "10000", "10000", "10000", "10000", "10000", "11111"], 
+                'M': ["10001", "11011", "10101", "10001", "10001", "10001", "10001"], 
+                'N': ["10001", "11001", "10101", "10011", "10001", "10001", "10001"], 
+                'O': ["01110", "10001", "10001", "10001", "10001", "10001", "01110"], 
+                'P': ["11110", "10001", "10001", "11110", "10000", "10000", "10000"], 
+                'Q': ["01110", "10001", "10001", "10001", "10101", "10010", "01111"], 
+                'R': ["11110", "10001", "10001", "11110", "10100", "10010", "10001"], 
+                'S': ["01111", "10000", "10000", "01110", "00001", "00001", "11110"],
+                'T': ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+                'U': ["10001", "10001", "10001", "10001", "10001", "10001", "01110"], 
+                'V': ["10001", "10001", "10001", "10001", "10001", "01010", "00100"], 
+                'W': ["10001", "10001", "10001", "10101", "10101", "11011", "10001"], 
+                'X': ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+                'Y': ["10001", "10001", "01010", "00100", "00100", "00100", "00100"], 
+                'Z': ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+                '0': ["01110", "10001", "10011", "10101", "11001", "10001", "01110"], 
+                '1': ["00100", "01100", "00100", "00100", "00100", "00100", "01110"], 
+                '2': ["01110", "10001", "00001", "01110", "10000", "10000", "11111"],
+                '3': ["01110", "10001", "00001", "01110", "00001", "10001", "01110"], 
+                '4': ["00010", "00110", "01010", "10010", "11111", "00010", "00010"], 
+                '5': ["11111", "10000", "10000", "11110", "00001", "10001", "01110"], 
+                '6': ["01110", "10001", "10000", "11110", "10001", "10001", "01110"], 
+                '7': ["11111", "00001", "00010", "00100", "01000", "01000", "01000"], 
+                '8': ["01110", "10001", "10001", "01110", "10001", "10001", "01110"], 
+                '9': ["01110", "10001", "10001", "01111", "00001", "10001", "01110"],
+                '.': ["00000", "00000", "00000", "00000", "01100", "01100", "00000"], 
+                ',': ["00000", "00000", "00000", "00000", "01100", "01100", "00100"], 
+                '!': ["00100", "00100", "00100", "00100", "00100", "00000", "00100"], 
+                '?': ["01110", "10001", "00010", "00110", "00100", "00000", "00100"], 
+                ':': ["00000", "00000", "01100", "00000", "01100", "01100", "00000"], 
+                ';': ["00000", "00000", "01100", "00000", "01100", "01100", "00100"], 
+                '-': ["00000", "00000", "00000", "01110", "00000", "00000", "00000"], 
+                '_': ["00000", "00000", "00000", "00000", "00000", "00000", "11111"], 
+                ' ': ["00000", "00000", "00000", "00000", "00000", "00000", "00000"]
+            };
+
+            const contributionLevels = { 0: 0, 1: 1, 2: 5, 3: 10, 4: 20 };
+
+            function init() {
+                applyTheme();
+                applyLang();
+                populateYearSelect();
+                createPalette();
+                createFontPreview();
+                createGrid();
+                addEventListeners();
+                updateGridForYear(parseInt(yearSelect.value));
+            }
+
+            function populateYearSelect() {
+                const currentYear = new Date().getFullYear();
+                for (let i = 0; i < 20; i++) {
+                    const year = currentYear - i;
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearSelect.appendChild(option);
+                }
+            }
+            
+            function createPalette() {
+                paletteContainer.innerHTML = '';
+                Object.keys(contributionLevels).forEach(level => {
+                    const colorBox = document.createElement('div');
+                    colorBox.className = `palette-color level-${level}`;
+                    if (parseInt(level) === selectedLevel) colorBox.classList.add('active');
+                    colorBox.dataset.level = level;
+                    paletteContainer.appendChild(colorBox);
+                });
+            }
+
+            function createFontPreview() {
+                fontPreviewContainer.innerHTML = '';
+                for (const char in FONT_5x7) {
+                    const item = document.createElement('div');
+                    item.className = 'font-char-item';
+                    const label = document.createElement('div');
+                    label.className = 'font-char-label';
+                    label.textContent = char === ' ' ? '" "' : char;
+                    const grid = document.createElement('div');
+                    grid.className = 'font-char-grid';
+                    const pattern = FONT_5x7[char];
+                    for (let r = 0; r < FONT_HEIGHT; r++) {
+                        for (let c = 0; c < FONT_WIDTH; c++) {
+                            const cell = document.createElement('div');
+                            cell.className = 'font-cell ' + (pattern[r][c] === '1' ? 'level-3' : 'level-0');
+                            grid.appendChild(cell);
+                        }
+                    }
+                    item.appendChild(label);
+                    item.appendChild(grid);
+                    fontPreviewContainer.appendChild(item);
+                }
+            }
+
+            function createGrid() {
+                gridContainer.innerHTML = '';
+                // IMPORTANT: Create cells column by column to match CSS grid-auto-flow
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.dataset.row = r;
+                        cell.dataset.col = c;
+                        gridContainer.appendChild(cell);
+                    }
+                }
+            }
+
+            function addEventListeners() {
+                yearSelect.addEventListener('change', (e) => {
+                    const nextYear = parseInt(e.target.value, 10);
+                    if (nextYear === currentYear) return;
+                    if (hasContent() && !confirm(t('yearSwitchConfirm'))) {
+                        e.target.value = currentYear;
+                        return;
+                    }
+                    updateGridForYear(nextYear);
+                });
+                textInput.addEventListener('input', (e) => renderTextToGrid(e.target.value.toUpperCase()));
+                generateBtn.addEventListener('click', generateConfigFile);
+                paletteContainer.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('palette-color')) {
+                        selectedLevel = parseInt(e.target.dataset.level, 10);
+                        document.querySelectorAll('.palette-color').forEach(p => p.classList.remove('active'));
+                        e.target.classList.add('active');
+                        updateTextHint();
+                    }
+                });
+                gridContainer.addEventListener('mousedown', (e) => { isMouseDown = true; strokeSnapshot = null; handleDraw(e); });
+                gridContainer.addEventListener('mouseup', () => { isMouseDown = false; strokeSnapshot = null; });
+                gridContainer.addEventListener('mouseleave', () => { isMouseDown = false; strokeSnapshot = null; });
+                gridContainer.addEventListener('mousemove', (e) => { if (isMouseDown) handleDraw(e); });
+                gridContainer.addEventListener('click', handleDraw);
+                undoBtn.addEventListener('click', undo);
+                redoBtn.addEventListener('click', redo);
+                langToggle.addEventListener('click', () => {
+                    lang = lang === 'zh' ? 'en' : 'zh';
+                    try { localStorage.setItem('ga-lang', lang); } catch (e) { /* ignore */ }
+                    applyLang();
+                });
+                themeToggle.addEventListener('click', () => {
+                    theme = theme === 'dark' ? 'light' : 'dark';
+                    try { localStorage.setItem('ga-theme', theme); } catch (e) { /* ignore */ }
+                    applyTheme();
+                });
+                if (window.matchMedia) {
+                    // 未手动选择时，实时跟随系统主题变化
+                    const systemThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
+                    const followSystemTheme = (e) => {
+                        try {
+                            const saved = localStorage.getItem('ga-theme');
+                            if (saved !== 'dark' && saved !== 'light') {
+                                theme = e.matches ? 'dark' : 'light';
+                                applyTheme();
+                            }
+                        } catch (err) { /* ignore */ }
+                    };
+                    if (systemThemeMq.addEventListener) systemThemeMq.addEventListener('change', followSystemTheme);
+                    else if (systemThemeMq.addListener) systemThemeMq.addListener(followSystemTheme);
+                }
+                document.addEventListener('keydown', (e) => {
+                    const tag = (e.target && e.target.tagName ? e.target.tagName : '').toLowerCase();
+                    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+                    const key = (e.key || '').toLowerCase();
+                    if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
+                        e.preventDefault();
+                        undo();
+                    } else if ((e.ctrlKey || e.metaKey) && (key === 'y' || (key === 'z' && e.shiftKey))) {
+                        e.preventDefault();
+                        redo();
+                    }
+                });
+            }
+            
+            function updateGridForYear(year) {
+                currentYear = year;
+                const firstDayOfYear = new Date(year, 0, 1);
+                const dayOfWeek = firstDayOfYear.getDay(); // 0=Sun, 1=Mon...
+                gridStartDate = new Date(firstDayOfYear.setDate(firstDayOfYear.getDate() - dayOfWeek));
+                
+                disabledCells = Array(ROWS).fill(0).map(() => Array(COLS).fill(false));
+                
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        const daysOffset = c * 7 + r;
+                        const cellDate = new Date(gridStartDate.getTime());
+                        cellDate.setDate(gridStartDate.getDate() + daysOffset);
+                        if (cellDate.getFullYear() !== year) {
+                            disabledCells[r][c] = true;
+                        }
+                    }
+                }
+                clearGridState();
+                history = [];
+                future = [];
+                strokeSnapshot = null;
+                updateHistoryButtons();
+
+                const text = textInput.value.trim();
+                if (text) {
+                    // 文本属于实时输入：切换年份后重新渲染到新的一年
+                    renderTextToGrid(text.toUpperCase());
+                } else {
+                    lastUnsupported = new Set();
+                    lastTruncated = false;
+                    redrawGrid();
+                    updateTextHint();
+                }
+            }
+
+            function handleDraw(e) {
+                if (e.target.classList.contains('grid-cell')) {
+                    const row = parseInt(e.target.dataset.row, 10);
+                    const col = parseInt(e.target.dataset.col, 10);
+                    if (!disabledCells[row][col] && gridState[row][col] !== selectedLevel) {
+                        recordStrokeStart();
+                        gridState[row][col] = selectedLevel;
+                        redrawCell(row, col);
+                    }
+                }
+            }
+
+            function renderTextToGrid(text) {
+                const before = snapshotGrid();
+                clearGridState();
+                let currentCol = 1;
+                let truncated = false;
+                const unsupported = new Set();
+
+                for (const char of text) {
+                    const pattern = FONT_5x7[char];
+                    if (!pattern) {
+                        // 未知字符按空格占位，保持字符间距一致，并在提示区告知用户
+                        unsupported.add(char);
+                        currentCol += FONT_WIDTH + 1;
+                        continue;
+                    }
+                    if (currentCol + FONT_WIDTH > COLS) {
+                        truncated = true;
+                        break;
+                    }
+                    for (let r = 0; r < FONT_HEIGHT; r++) {
+                        for (let c = 0; c < FONT_WIDTH; c++) {
+                            const targetCol = currentCol + c;
+                            if (pattern[r][c] === '1' && !disabledCells[r][targetCol]) {
+                                gridState[r][targetCol] = selectedLevel; // Use selected color for text
+                            }
+                        }
+                    }
+                    currentCol += FONT_WIDTH + 1;
+                }
+
+                lastUnsupported = unsupported;
+                lastTruncated = truncated;
+                if (before.join('') !== gridState.join('')) commitSnapshot(before);
+                redrawGrid();
+                updateTextHint();
+            }
+
+            function hasContent() {
+                return gridState.some(row => row.some(level => level > 0));
+            }
+
+            function snapshotGrid() {
+                return gridState.map(row => row.slice());
+            }
+
+            function commitSnapshot(snapshot) {
+                history.push(snapshot);
+                if (history.length > HISTORY_LIMIT) history.shift();
+                future = [];
+                updateHistoryButtons();
+            }
+
+            // 一次拖拽/点击最多记录一条历史，保证撤销粒度符合直觉
+            function recordStrokeStart() {
+                if (strokeSnapshot === null) {
+                    strokeSnapshot = snapshotGrid();
+                    commitSnapshot(strokeSnapshot);
+                }
+            }
+
+            function applySnapshot(snapshot) {
+                gridState = snapshot;
+                redrawGrid();
+                updateHistoryButtons();
+            }
+
+            function undo() {
+                if (!history.length) return;
+                future.push(snapshotGrid());
+                applySnapshot(history.pop());
+            }
+
+            function redo() {
+                if (!future.length) return;
+                history.push(snapshotGrid());
+                applySnapshot(future.pop());
+            }
+
+            function updateHistoryButtons() {
+                undoBtn.disabled = history.length === 0;
+                redoBtn.disabled = future.length === 0;
+            }
+
+            function updateTextHint() {
+                const messages = [];
+                if (lastUnsupported.size) {
+                    messages.push(t('hintUnsupported', { chars: [...lastUnsupported].join(' ') }));
+                }
+                if (lastTruncated) messages.push(t('hintTruncated'));
+                if (textInput.value.trim() && selectedLevel === 0) {
+                    messages.push(t('hintEraser'));
+                }
+                textHint.textContent = messages.join(lang === 'zh' ? '；' : '; ');
+            }
+
+            function formatLocalDate(date) {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+
+            function clearGridState() {
+                gridState = Array(ROWS).fill(0).map(() => Array(COLS).fill(0));
+            }
+
+            function redrawGrid() {
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        redrawCell(r, c);
+                    }
+                }
+            }
+            
+            function redrawCell(row, col) {
+                const cellIndex = col * ROWS + row;
+                const cell = gridContainer.children[cellIndex];
+                if (!cell) return;
+                
+                cell.className = 'grid-cell'; // Reset classes
+                if (disabledCells[row][col]) {
+                    cell.classList.add('disabled');
+                } else {
+                    cell.classList.add(`level-${gridState[row][col]}`);
+                }
+            }
+
+            function generateConfigFile() {
+                const repoName = document.getElementById('repoName').value.trim();
+                const userName = document.getElementById('userName').value.trim();
+                const userEmail = document.getElementById('userEmail').value.trim();
+
+                if (!repoName || !userName || !userEmail) {
+                    alert(t('alertMissing'));
+                    return;
+                }
+                if (repoName === '.' || repoName === '..' || !/^[A-Za-z0-9._-]+$/.test(repoName)) {
+                    alert(t('alertRepoName'));
+                    return;
+                }
+                if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(userEmail)) {
+                    alert(t('alertEmail'));
+                    return;
+                }
+                if (!hasContent()) {
+                    if (!confirm(t('alertEmptyPattern'))) {
+                        return;
+                    }
+                }
+
+                // Format pattern as an array of strings
+                const patternAsStringArray = gridState.map(row => row.join(''));
+                
+                const config = {
+                    git_config: { user_name: userName, user_email: userEmail },
+                    repository_name: repoName,
+                    // 使用本地日期，避免 toISOString 的 UTC 换算导致日期偏移一天
+                    start_date: formatLocalDate(gridStartDate),
+                    levels: contributionLevels,
+                    pattern: patternAsStringArray
+                };
+
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.href = dataStr;
+                downloadAnchorNode.download = "pattern.json";
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
