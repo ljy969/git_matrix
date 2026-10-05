@@ -22,6 +22,7 @@
     <style>
         /* --- General & Font Styles (Replaces Google Fonts & Tailwind Base) --- */
         :root {
+            color-scheme: light;
             --color-bg: #f3f4f6;
             --color-text: #1f2937;
             --color-text-light: #4b5563;
@@ -30,27 +31,41 @@
             --color-input-bg: #f9fafb;
             --color-primary: #2563eb;
             --color-primary-hover: #1d4ed8;
+            --color-primary-text: #2563eb;
             --color-shadow: rgba(0, 0, 0, 0.1);
             --color-hint: #b45309;
-            
+            --color-grid-bg: #ffffff;
+            --color-btn-disabled-bg: #9ca3af;
+            /* 字库预览空白点：比 level-0 略深，保证 5x7 矩阵结构在浅色下可辨 */
+            --font-cell-empty: #d1d5db;
+
             --level-0: #ebedf0;
             --level-1: #9be9a8;
             --level-2: #40c463;
             --level-3: #30a14e;
             --level-4: #216e39;
-            --cell-disabled: #e2e2e2;
+            /* 禁用格（非本年份）融入网格底色，与 level-0 空白格明确区分 */
+            --cell-disabled: #ffffff;
         }
         :root[data-theme="dark"] {
+            color-scheme: dark;
             --color-bg: #0d1117;
             --color-text: #e6edf3;
             --color-text-light: #8b949e;
             --color-panel-bg: #161b22;
-            --color-border: #30363d;
+            /* 深色下提升边框亮度，控件边界对比度 ≥ 3:1（WCAG 非文本要求） */
+            --color-border: #6e7681;
             --color-input-bg: #0d1117;
             --color-primary: #2563eb;
             --color-primary-hover: #3b82f6;
+            /* 深色面板上用更亮的蓝色文字，链接/按钮文字对比度 ≥ 4.5:1 */
+            --color-primary-text: #60a5fa;
             --color-shadow: rgba(0, 0, 0, 0.6);
             --color-hint: #f59e0b;
+            /* 网格底色比面板更深，使 level-0(#161b22) 空白格可见（同 GitHub 深色方案） */
+            --color-grid-bg: #0d1117;
+            --color-btn-disabled-bg: #3f4750;
+            --font-cell-empty: #161b22;
 
             /* GitHub 暗色贡献图色阶 */
             --level-0: #161b22;
@@ -58,7 +73,7 @@
             --level-2: #006d32;
             --level-3: #00893b;
             --level-4: #00c24a;
-            --cell-disabled: #21262d;
+            --cell-disabled: #0d1117;
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -80,7 +95,7 @@
             font-weight: 600;
             border-radius: 0.375rem;
             background-color: var(--color-panel-bg);
-            color: var(--color-primary);
+            color: var(--color-primary-text);
             border: 1px solid var(--color-border);
             box-shadow: none;
         }
@@ -109,12 +124,17 @@
             width: 100%;
             padding: 0.5rem 0.75rem;
             background-color: var(--color-input-bg);
+            color: var(--color-text);
             border: 1px solid var(--color-border);
             border-radius: 0.375rem;
             box-shadow: inset 0 1px 2px var(--color-shadow);
             box-sizing: border-box;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
+        /* 占位符使用高对比度的次要文字色（opacity:1 防止浏览器再降透明度） */
+        ::placeholder { color: var(--color-text-light); opacity: 1; }
+        /* 确保深色模式下原生下拉弹层文字可读 */
+        select option { background-color: var(--color-panel-bg); color: var(--color-text); }
         input:focus, textarea:focus, select:focus {
             outline: none;
             border-color: var(--color-primary);
@@ -142,7 +162,7 @@
             grid-auto-columns: 1fr;
             gap: 3px;
             padding: 0.5rem;
-            background-color: var(--color-panel-bg);
+            background-color: var(--color-grid-bg);
             border: 1px solid var(--color-border);
             border-radius: 0.375rem;
         }
@@ -167,14 +187,15 @@
         .level-4 { background-color: var(--level-4); }
         
         .palette { display: flex; align-items: center; gap: 0.5rem; }
-        .palette-color { width: 2rem; height: 2rem; border-radius: 0.375rem; cursor: pointer; }
+        /* 描边保证 level-0 色块在深色面板上也清晰可见 */
+        .palette-color { width: 2rem; height: 2rem; border-radius: 0.375rem; cursor: pointer; box-sizing: border-box; border: 1px solid var(--color-border); }
         .palette-color.active { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
         /* --- Toolbar / Hint --- */
         .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
         .btn-small { padding: 0.35rem 0.9rem; font-size: 0.8125rem; font-weight: 600; border-radius: 0.375rem; }
-        .btn-small:disabled { background-color: #9ca3af; cursor: not-allowed; }
-        .btn-small:disabled:hover { background-color: #9ca3af; }
+        .btn-small:disabled { background-color: var(--color-btn-disabled-bg); cursor: not-allowed; }
+        .btn-small:disabled:hover { background-color: var(--color-btn-disabled-bg); }
         .hint { min-height: 1.2em; margin-top: 0.35rem; font-size: 0.8125rem; line-height: 1.35; color: var(--color-hint); }
         .toolbar .hint { margin-top: 0; color: var(--color-text-light); }
 
@@ -182,9 +203,11 @@
         .font-preview-wrapper { background-color: var(--color-panel-bg); padding: 1.5rem; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px var(--color-shadow); }
         .font-preview-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 1rem 1rem; }
         .font-char-item { display: flex; flex-direction: column; align-items: center; }
-        .font-char-label { font-family: monospace; font-size: 0.875rem; margin-bottom: 0.25rem; }
-        .font-char-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; width: 50px; }
+        .font-char-label { font-family: monospace; font-size: 0.875rem; margin-bottom: 0.25rem; color: var(--color-text-light); }
+        /* 字库格底与网格底色一致，使深色下 level-0 空白点可见 */
+        .font-char-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; width: 50px; padding: 2px; border-radius: 3px; background-color: var(--color-grid-bg); }
         .font-cell { width: 100%; aspect-ratio: 1/1; border-radius: 1px; }
+        .font-cell.level-0 { background-color: var(--font-cell-empty); }
 
     </style>
 </head>
@@ -289,6 +312,7 @@
                     previewLabel: '贡献图预览',
                     generateBtn: '生成 pattern.json 配置文件',
                     fontPreviewTitle: '5x7 像素字库预览',
+                    fontSpace: '空格',
                     langToggle: 'English',
                     langToggleTitle: '切换到 English',
                     themeToggleToDark: '切换到深色模式',
@@ -320,6 +344,7 @@
                     previewLabel: 'Contribution Preview',
                     generateBtn: 'Generate pattern.json Config File',
                     fontPreviewTitle: '5x7 Pixel Font Preview',
+                    fontSpace: 'Space',
                     langToggle: '中文',
                     langToggleTitle: '切换到中文',
                     themeToggleToDark: 'Switch to dark mode',
@@ -359,6 +384,7 @@
                 document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
                 document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
                 updateTextHint();
+                createFontPreview(); // 空格标签随语言切换更新
                 applyTheme();
             }
 
@@ -392,6 +418,10 @@
             let strokeSnapshot = null;
             let lastUnsupported = new Set();
             let lastTruncated = false;
+            // 与当前 gridState 对应的输入框文本，撤销/重做时一并恢复
+            let stateText = '';
+            // 输入法（IME）组合进行中：组合期间输入框里是拼音中间态，不能渲染、也不能进入历史
+            let isComposing = false;
 
             const gridContainer = document.getElementById('grid-container');
             const textInput = document.getElementById('textInput');
@@ -446,8 +476,8 @@
                 ',': ["00000", "00000", "00000", "00000", "01100", "01100", "00100"], 
                 '!': ["00100", "00100", "00100", "00100", "00100", "00000", "00100"], 
                 '?': ["01110", "10001", "00010", "00110", "00100", "00000", "00100"], 
-                ':': ["00000", "00000", "01100", "00000", "01100", "01100", "00000"], 
-                ';': ["00000", "00000", "01100", "00000", "01100", "01100", "00100"], 
+                ':': ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
+                ';': ["00000", "01100", "01100", "00000", "01100", "01100", "00100"],
                 '-': ["00000", "00000", "00000", "01110", "00000", "00000", "00000"], 
                 '_': ["00000", "00000", "00000", "00000", "00000", "00000", "11111"], 
                 ' ': ["00000", "00000", "00000", "00000", "00000", "00000", "00000"]
@@ -495,7 +525,8 @@
                     item.className = 'font-char-item';
                     const label = document.createElement('div');
                     label.className = 'font-char-label';
-                    label.textContent = char === ' ' ? '" "' : char;
+                    // 空格字符显示为文字标签，避免 '" "' 看起来像没渲染出来
+                    label.textContent = char === ' ' ? t('fontSpace') : char;
                     const grid = document.createElement('div');
                     grid.className = 'font-char-grid';
                     const pattern = FONT_5x7[char];
@@ -536,13 +567,37 @@
                     }
                     updateGridForYear(nextYear);
                 });
-                textInput.addEventListener('input', (e) => renderTextToGrid(e.target.value.toUpperCase()));
+                // 输入法组合（IME）期间输入框里是拼音中间态（例如 hello 会先出现 he'l'lo），
+                // 这些中间态既不能渲染进贡献图，也不能进入撤销历史，否则撤销会把它们还原到输入框，
+                // 并因为 ' 不在字库中而误报“不支持字符”。
+                textInput.addEventListener('compositionstart', () => { isComposing = true; });
+                textInput.addEventListener('compositionend', (e) => {
+                    isComposing = false;
+                    renderTextToGrid(e.target.value);
+                });
+                textInput.addEventListener('input', (e) => {
+                    // 只要仍处于组合态（compositionstart 之后、compositionend 之前），一律不渲染：
+                    // 部分浏览器/输入法在组合中途发出的 input 事件并不带 isComposing 标记
+                    const composing = isComposing || e.isComposing === true || e.inputType === 'insertCompositionText';
+                    if (composing) return;
+                    isComposing = false;
+                    renderTextToGrid(e.target.value);
+                });
+                // 右键菜单/系统原生撤销会绕过本脚本的历史，改走统一的撤销/重做
+                textInput.addEventListener('beforeinput', (e) => {
+                    if (e.inputType !== 'historyUndo' && e.inputType !== 'historyRedo') return;
+                    e.preventDefault();
+                    if (e.inputType === 'historyUndo') undo(); else redo();
+                });
                 generateBtn.addEventListener('click', generateConfigFile);
                 paletteContainer.addEventListener('click', (e) => {
                     if (e.target.classList.contains('palette-color')) {
                         selectedLevel = parseInt(e.target.dataset.level, 10);
                         document.querySelectorAll('.palette-color').forEach(p => p.classList.remove('active'));
                         e.target.classList.add('active');
+                        // 已有文本时按新画笔颜色重绘（与切换年份的行为一致，且可通过撤销恢复）
+                        const raw = textInput.value;
+                        if (raw.trim()) renderTextToGrid(raw);
                         updateTextHint();
                     }
                 });
@@ -579,16 +634,19 @@
                     else if (systemThemeMq.addListener) systemThemeMq.addListener(followSystemTheme);
                 }
                 document.addEventListener('keydown', (e) => {
-                    const tag = (e.target && e.target.tagName ? e.target.tagName : '').toLowerCase();
-                    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+                    // 输入法组合期间不抢按键，交给输入法自身处理
+                    if (e.isComposing || e.keyCode === 229) return;
                     const key = (e.key || '').toLowerCase();
-                    if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
-                        e.preventDefault();
-                        undo();
-                    } else if ((e.ctrlKey || e.metaKey) && (key === 'y' || (key === 'z' && e.shiftKey))) {
-                        e.preventDefault();
-                        redo();
-                    }
+                    const isUndoKey = (e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey;
+                    const isRedoKey = (e.ctrlKey || e.metaKey) && (key === 'y' || (key === 'z' && e.shiftKey));
+                    if (!isUndoKey && !isRedoKey) return;
+                    const tag = (e.target && e.target.tagName ? e.target.tagName : '').toLowerCase();
+                    // 文本域的内容与贡献图共用同一套历史，必须由本脚本接管：
+                    // 交给浏览器原生撤销会把输入框改回未经渲染的旧值（如输入法中间态），与网格脱节。
+                    // 其余配置输入框保留浏览器原生撤销。
+                    if ((tag === 'input' || tag === 'textarea' || tag === 'select') && e.target !== textInput) return;
+                    e.preventDefault();
+                    if (isUndoKey) undo(); else redo();
                 });
             }
             
@@ -616,11 +674,12 @@
                 strokeSnapshot = null;
                 updateHistoryButtons();
 
-                const text = textInput.value.trim();
-                if (text) {
-                    // 文本属于实时输入：切换年份后重新渲染到新的一年
-                    renderTextToGrid(text.toUpperCase());
+                const raw = textInput.value;
+                if (raw.trim()) {
+                    // 文本属于实时输入：切换年份后重新渲染到新的一年（历史已清空，不记录）
+                    renderTextToGrid(raw, false);
                 } else {
+                    stateText = raw;
                     lastUnsupported = new Set();
                     lastTruncated = false;
                     redrawGrid();
@@ -640,9 +699,14 @@
                 }
             }
 
-            function renderTextToGrid(text) {
-                const before = snapshotGrid();
+            // rawText 为输入框原文（保持大小写），仅渲染时统一转大写
+            // recordHistory=false 用于年份切换等不应进入撤销栈的重绘
+            function renderTextToGrid(rawText, recordHistory = true) {
+                // 双保险：输入法组合未结束时，任何来源的调用都不得渲染/入栈
+                if (isComposing) return;
+                const before = snapshotState();
                 clearGridState();
+                const text = rawText.toUpperCase();
                 let currentCol = 1;
                 let truncated = false;
                 const unsupported = new Set();
@@ -672,7 +736,11 @@
 
                 lastUnsupported = unsupported;
                 lastTruncated = truncated;
-                if (before.join('') !== gridState.join('')) commitSnapshot(before);
+                // 网格或文本任一发生变化都记入历史，撤销才能连输入框一起回退
+                const changed = before.grid.join('') !== gridState.join('') || before.text !== rawText;
+                // 入栈的 before 记录的是“本次编辑之前”的文本与网格
+                if (recordHistory && changed) commitSnapshot(before);
+                stateText = rawText;
                 redrawGrid();
                 updateTextHint();
             }
@@ -685,6 +753,16 @@
                 return gridState.map(row => row.slice());
             }
 
+            // 历史条目同时保存网格、输入框文本与提示状态，撤销/重做才能对输入框一起生效
+            function snapshotState() {
+                return {
+                    grid: snapshotGrid(),
+                    text: stateText,
+                    unsupported: new Set(lastUnsupported),
+                    truncated: lastTruncated
+                };
+            }
+
             function commitSnapshot(snapshot) {
                 history.push(snapshot);
                 if (history.length > HISTORY_LIMIT) history.shift();
@@ -695,26 +773,32 @@
             // 一次拖拽/点击最多记录一条历史，保证撤销粒度符合直觉
             function recordStrokeStart() {
                 if (strokeSnapshot === null) {
-                    strokeSnapshot = snapshotGrid();
+                    strokeSnapshot = snapshotState();
                     commitSnapshot(strokeSnapshot);
                 }
             }
 
             function applySnapshot(snapshot) {
-                gridState = snapshot;
+                gridState = snapshot.grid;
+                lastUnsupported = new Set(snapshot.unsupported);
+                lastTruncated = snapshot.truncated;
+                stateText = snapshot.text;
+                // 直接赋值不会触发 input 事件，避免重复渲染
+                if (textInput.value !== snapshot.text) textInput.value = snapshot.text;
                 redrawGrid();
+                updateTextHint();
                 updateHistoryButtons();
             }
 
             function undo() {
                 if (!history.length) return;
-                future.push(snapshotGrid());
+                future.push(snapshotState());
                 applySnapshot(history.pop());
             }
 
             function redo() {
                 if (!future.length) return;
-                history.push(snapshotGrid());
+                history.push(snapshotState());
                 applySnapshot(future.pop());
             }
 
